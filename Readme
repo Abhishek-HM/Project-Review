@@ -1,0 +1,1 @@
+docker exec -it order-service  curl http://localhost:8080/actuator
