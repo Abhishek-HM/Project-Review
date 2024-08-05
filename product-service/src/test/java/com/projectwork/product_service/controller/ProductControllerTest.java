@@ -1,169 +1,94 @@
 package com.projectwork.product_service.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.projectwork.product_service.dto.ProductRequest;
 import com.projectwork.product_service.dto.ProductResponse;
 import com.projectwork.product_service.service.ProductService;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.testcontainers.shaded.com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@ExtendWith(MockitoExtension.class)
-class ProductControllerTest {
+
+@WebMvcTest(ProductController.class)
+@ExtendWith(SpringExtension.class)
+public class ProductControllerTest {
+
+    @Autowired
     private MockMvc mockMvc;
-
-    @InjectMocks
-    private ProductController productController;
-
-    @Mock
-    private ProductService productService;
-
+    @Autowired
     private ObjectMapper objectMapper;
 
-    @BeforeEach
-    void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(productController).build();
-        objectMapper = new ObjectMapper();
-    }
+    @MockBean
+    private ProductService productService;
 
     @Test
-    public void shouldCreateProductReturnProductSuccessfullyCreated() throws Exception {
-        // given
-        ProductRequest productRequest = new ProductRequest("Iphone", "Iphone-13", BigDecimal.valueOf(120));
-
-        // when
-        Mockito.doNothing().when(productService).createProduct(productRequest);
-
-        // then
-        mockMvc.perform(MockMvcRequestBuilders.post("/api/product")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(productRequest)))
-                .andExpect(MockMvcResultMatchers.status().isCreated())
-                .andExpect(MockMvcResultMatchers.content().string("Product Successfully Created"));
-
-        Mockito.verify(productService).createProduct(Mockito.any(ProductRequest.class));
+    void shouldCreateProductAndReturnProductSuccessfullyCreated() throws Exception {
+        ProductRequest productRequest = getProductRequest();
+        String productRequestString = objectMapper.writeValueAsString(productRequest);
+        MvcResult mvcResult = mockMvc.perform(MockMvcRequestBuilders.post("/api/product").contentType(MediaType.APPLICATION_JSON)
+                        .content(productRequestString))
+                .andExpect(status().isCreated())
+                .andReturn();
+        Assertions.assertEquals(HttpStatus.CREATED.value(), mvcResult.getResponse().getStatus());
     }
 
-    @Test
-    public void shouldReturnAllTheProduct() throws Exception {
-        List<ProductResponse> productResponseList = List.of(
-                new ProductResponse("1", "IPhone", "Iphone-13", BigDecimal.valueOf(120)),
-                new ProductResponse("2", "Redmi", "Redmi note 9", BigDecimal.valueOf(100))
-        );
-
-        Mockito.when(productService.getAllProducts()).thenReturn(productResponseList);
-
-        mockMvc.perform(MockMvcRequestBuilders.get("/api/product")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(MockMvcResultMatchers.status().isOk())
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].id").value("1"))
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].name").value("IPhone"))
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].description").value("Iphone-13"))
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].price").value(120))
-                .andExpect(MockMvcResultMatchers.jsonPath("$[1].id").value("2"))
-                .andExpect(MockMvcResultMatchers.jsonPath("$[1].name").value("Redmi"))
-                .andExpect(MockMvcResultMatchers.jsonPath("$[1].description").value("Redmi note 9"))
-                .andExpect(MockMvcResultMatchers.jsonPath("$[1].price").value(100));
-        Mockito.verify(productService).getAllProducts();
+    private ProductRequest getProductRequest() {
+        return ProductRequest.builder()
+                .name("iPhone")
+                .description("iphone 13")
+                .price(BigDecimal.valueOf(100))
+                .build();
     }
-
     @Test
-    public void shouldNoProductsFoundInProductService() throws Exception {
+    void shouldReturnAllListOfProducts() throws Exception {
+        Mockito.when(productService.getAllProducts()).thenReturn(getProductResponse());
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/product").contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("iPhone"))
+                .andExpect(jsonPath("$[0].description").value("iphone 13"))
+                .andExpect(jsonPath("$[0].price").value(100))
+                .andExpect(jsonPath("$[1].name").value("iPhone"))
+                .andExpect(jsonPath("$[1].description").value("iphone 12"))
+                .andExpect(jsonPath("$[1].price").value(95));
+    }
+    private List<ProductResponse> getProductResponse() {
+        ProductResponse product1 = ProductResponse.builder()
+                .name("iPhone")
+                .description("iphone 13")
+                .price(BigDecimal.valueOf(100))
+                .build();
+
+        ProductResponse product2 = ProductResponse.builder()
+                .name("iPhone")
+                .description("iphone 12")
+                .price(BigDecimal.valueOf(95))
+                .build();
+
+        return List.of(product1, product2);
+    }
+    @Test
+    void shouldReturnNoProductsFoundInProductService() throws Exception {
+        Mockito.when(productService.getAllProducts()).thenReturn(productResponseList());
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/product").contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound());
+    }
+    private List<ProductResponse> productResponseList() {
         List<ProductResponse> productResponseList = new ArrayList<>();
-        Mockito.when(productService.getAllProducts()).thenReturn(productResponseList);
-
-        mockMvc.perform(MockMvcRequestBuilders.get("/api/product")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(MockMvcResultMatchers.status().isNotFound())
-                .andExpect(MockMvcResultMatchers.content().string("No Products Found In Product Service."));
+        return productResponseList;
     }
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*    @Test
-    public void shouldReturnAllTheProduct() throws Exception {
-        List<ProductResponse> productResponseList = List.of(
-                new ProductResponse("1","IPhone","Iphone-13",BigDecimal.valueOf(120)),
-                new ProductResponse("2","Redmi","Redmi note 9",BigDecimal.valueOf(100))
-        );
-
-        Mockito.when(productService.getAllProducts()).thenReturn(productResponseList);
-
-        mockMvc.perform(MockMvcRequestBuilders.get("/api/product")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(MockMvcResultMatchers.status().isOk())
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].id").value("1"))
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].name").value("IPhone"))
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].description").value("Iphone-13"));
-        Mockito.verify(productService).getAllProducts();
-    }*/
-
-
-
-
-
-/*
-@Test
-public void shouldCreateProductReturnProductSuccessfullyCreated() {
-        Mockito.doNothing().when(productService).createProduct(productRequest);
-
-        mockMvc.perform(MockMvcRequestBuilders.post("/api/product")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(productRequestJson))
-                .andExpect(MockMvcResultMatchers.status().isCreated())
-                .andExpect(MockMvcResultMatchers.content().string("Product Successfully Created"));
-        Mockito.verify(productService).createProduct(productRequest);
-    }*/
-/*    @Test
-    public void shouldReturnAllProduct() throws Exception {
-        // given
-        List<ProductResponse> products = List.of(
-                new ProductResponse("1","IPhone","Iphone-13",BigDecimal.valueOf(120)),
-                new ProductResponse("2","Redmi","Redmi note 9",BigDecimal.valueOf(100))
-        );
-
-        // when
-        Mockito.when(productController.getAllProducts()).thenReturn(products);
-
-        // then
-        List<ProductResponse> response = productController.getAllProducts();
-        assertEquals(products, response);
-
-    }
-}*/

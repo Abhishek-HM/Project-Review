@@ -11,11 +11,12 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 
 @Service
-@RequiredArgsConstructor // it will create the constructor at the compile time (lombok)
+@RequiredArgsConstructor
 @Slf4j
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final ProductMapper productMapper;
 
     public void createProduct(ProductRequest productRequest) {
         Product product = Product.builder()
@@ -24,21 +25,13 @@ public class ProductService {
                 .price(productRequest.getPrice())
                 .build();
         productRepository.save(product);
-        log.info("Product {} is Saved",product.getId());
+        log.info("Product {} is Saved", product.getId());
     }
 
     public List<ProductResponse> getAllProducts() {
         List<Product> products = productRepository.findAll();
 
-        return products.stream().map(product -> mapToProductResponse(product)).toList();
+        return products.stream().map(product -> productMapper.productToProductResponse(product)).toList();
     }
 
-    private ProductResponse mapToProductResponse(Product product) {
-        return  ProductResponse.builder()
-                .id(product.getId())
-                .name(product.getName())
-                .description(product.getDescription())
-                .price(product.getPrice())
-                .build();
-    }
 }

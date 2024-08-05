@@ -21,7 +21,8 @@ public class ProductController {
     @PostMapping
     public ResponseEntity<String> createProduct(@RequestBody ProductRequest productRequest) {
         productService.createProduct(productRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body("Product Successfully Created");
+        String response = ResponseMessages.PRODUCT_CREATED_SUCCESS.getMessage();
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping
@@ -29,7 +30,8 @@ public class ProductController {
         List<ProductResponse> responses= productService.getAllProducts();
         if(responses.isEmpty())
         {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No Products Found In Product Service.");
+            String response = ResponseMessages.PRODUCT_NOT_FOUND.getMessage();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         }
 
         return ResponseEntity.status(HttpStatus.OK).body(responses);
